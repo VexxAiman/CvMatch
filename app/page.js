@@ -22,6 +22,7 @@ export default function CVMatch() {
   const [scoreAfterLoading, setScoreAfterLoading] = useState(false)
 
   const [copied, setCopied] = useState(false)
+  const [pdfGenerating, setPdfGenerating] = useState(false)
 
   const [messages, setMessages] = useState([])
   const [userInput, setUserInput] = useState('')
@@ -129,8 +130,54 @@ export default function CVMatch() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  function handleDownloadPdf() {
-    window.print()
+  // Capture CV div with html2canvas, embed in jsPDF, download as .pdf
+  async function handleDownloadPdf() {
+    const element = document.getElementById('cv-print')
+    if (!element || pdfGenerating) return
+
+    setPdfGenerating(true)
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+
+      // Screenshot the CV element at 2× resolution for sharpness
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+      })
+
+      // A4 dimensions in mm
+      const A4_W = 210
+      const A4_H = 297
+
+      // Scale screenshot to fill A4 width; shrink to fit height if it overflows
+      let imgW = A4_W
+      let imgH = (canvas.height / canvas.width) * A4_W
+      let x = 0
+      let y = 0
+
+      if (imgH > A4_H) {
+        imgH = A4_H
+        imgW = (canvas.width / canvas.height) * A4_H
+        x = (A4_W - imgW) / 2
+      }
+
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', x, y, imgW, imgH)
+      pdf.save('cv-reformate.pdf')
+    } catch (err) {
+      console.error('PDF export error:', err)
+    } finally {
+      setPdfGenerating(false)
+    }
   }
 
   async function handleSend(e) {
@@ -386,16 +433,29 @@ export default function CVMatch() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleDownloadPdf}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  disabled={pdfGenerating}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ border: '1.5px solid #e2e8f0', color: '#374151' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                  onMouseEnter={e => { if (!pdfGenerating) e.currentTarget.style.background = '#f9fafb' }}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Télécharger en PDF
+                  {pdfGenerating ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Génération…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Télécharger en PDF
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={handleCopy}

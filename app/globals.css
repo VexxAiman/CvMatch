@@ -24,29 +24,4 @@ body {
 /* Smooth scrollbar */
 * { scroll-behavior: smooth; }
 
-/* ── Print styles ── */
-@media print {
-  body * { visibility: hidden; }
-
-  #cv-print,
-  #cv-print * { visibility: visible; }
-
-  #cv-print {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    box-shadow: none !important;
-    border: none !important;
-    border-radius: 0 !important;
-  }
-
-  * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  @page {
-    margin: 0;
-    size: A4;
-  }
-}
+/* PDF export is handled via html2canvas + jsPDF — no print CSS needed */
