@@ -37,13 +37,31 @@ function looksLikeContact(line) {
   )
 }
 
+function stripName(text, name) {
+  if (!name) return text
+  // Remove the name (case-insensitive) and any surrounding separators
+  return text
+    .replace(new RegExp('(?:^|\\s*)' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:\\s*[\\-—|,]\\s*)?', 'i'), '')
+    .replace(/^[\s\-—|,]+|[\s\-—|,]+$/g, '')
+    .trim()
+}
+
 function parseCV(text) {
   const lines = text.split('\n')
   const result = { name: '', subtitle: '', contact: [], sections: [] }
   let i = 0
 
+  // Skip leading blank lines
   while (i < lines.length && !lines[i].trim()) i++
 
+  // Fix 1: skip a leading section header (e.g. "NOM/CONTACT", "COORDONNÉES")
+  // before reading the actual name — the AI sometimes emits the header first.
+  if (i < lines.length && isSectionHeader(lines[i].trim()) && !looksLikeContact(lines[i].trim())) {
+    i++
+    while (i < lines.length && !lines[i].trim()) i++
+  }
+
+  // Name: first real non-empty, non-header line
   if (i < lines.length) {
     result.name = lines[i].trim().replace(/^[#*_]+\s*/, '').replace(/[*_]+$/, '')
     i++
@@ -61,6 +79,23 @@ function parseCV(text) {
       result.contact.push(line)
     }
     i++
+  }
+
+  // Fix 2: if the subtitle starts with or contains the name, strip it out.
+  // Handles cases like "Jean Dupont — Développeur Full Stack".
+  if (result.subtitle && result.name) {
+    const subLower = result.subtitle.toLowerCase()
+    const nameLower = result.name.toLowerCase()
+    if (subLower.startsWith(nameLower) || subLower === nameLower) {
+      result.subtitle = stripName(result.subtitle, result.name)
+    }
+  }
+
+  // Fix 3: drop any contact item that is exactly the name (no other info).
+  if (result.name) {
+    result.contact = result.contact.filter(
+      (item) => item.trim().toLowerCase() !== result.name.toLowerCase()
+    )
   }
 
   let currentTitle = null
