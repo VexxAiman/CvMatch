@@ -112,7 +112,21 @@ export default function CVMatch() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur serveur')
-      setMessages([...newMessages, { role: 'assistant', content: data.reply }])
+
+      const reply = data.reply
+
+      if (reply.startsWith('[CV_UPDATE]')) {
+        // Extract the updated CV and refresh the display
+        const updatedCV = reply.replace(/^\[CV_UPDATE\]\s*\n?/, '').trim()
+        setReformatted(updatedCV)
+        setMessages([...newMessages, {
+          role: 'assistant',
+          content: '[CV_UPDATE]' + updatedCV, // kept in history for context stripping on server
+          isUpdate: true,
+        }])
+      } else {
+        setMessages([...newMessages, { role: 'assistant', content: reply }])
+      }
     } catch (err) {
       setMessages([...newMessages, { role: 'assistant', content: `Erreur : ${err.message}` }])
     } finally {
@@ -273,15 +287,24 @@ export default function CVMatch() {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-indigo-600 text-white rounded-br-sm'
-                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-                  }`}
-                >
-                  {msg.content}
-                </div>
+                {msg.isUpdate ? (
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 text-green-700 rounded-2xl rounded-bl-sm text-sm font-medium">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    CV mis à jour — consultez le résultat ci-dessus.
+                  </div>
+                ) : (
+                  <div
+                    className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-indigo-600 text-white rounded-br-sm'
+                        : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                )}
               </div>
             ))}
             {sending && (
