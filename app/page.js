@@ -5,7 +5,8 @@ import CVDisplay from './components/CVDisplay'
 import ScoreCard from './components/ScoreCard'
 
 export default function CVMatch() {
-  const [cv, setCv] = useState('')
+  const [cv, setCv] = useState('')           // always holds the text used for analysis
+  const [cvSource, setCvSource] = useState('text') // 'text' | 'pdf'
   const [offer, setOffer] = useState('')
   const [pdfFileName, setPdfFileName] = useState('')
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -43,14 +44,24 @@ export default function CVMatch() {
       const res = await fetch('/api/parse-pdf', { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur serveur')
+      // Store extracted text internally but do NOT expose it in the textarea
       setCv(data.text.trim())
+      setCvSource('pdf')
     } catch (err) {
       setPdfError(err.message)
       setPdfFileName('')
+      setCvSource('text')
     } finally {
       setPdfLoading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  function handleClearPdf() {
+    setCv('')
+    setCvSource('text')
+    setPdfFileName('')
+    setPdfError('')
   }
 
   async function handleAnalyze() {
@@ -218,40 +229,82 @@ export default function CVMatch() {
                   Votre CV
                   <span className="ml-1.5 font-normal text-gray-400">(texte ou PDF)</span>
                 </label>
-                <div className="flex items-center gap-2">
-                  {pdfLoading && <span className="text-xs text-gray-400">Extraction…</span>}
-                  {pdfFileName && !pdfLoading && (
-                    <span className="text-xs truncate max-w-[110px]" style={{ color: '#2563eb' }} title={pdfFileName}>
-                      {pdfFileName}
-                    </span>
-                  )}
+                {/* Show the import button only when not in PDF mode */}
+                {cvSource !== 'pdf' && (
                   <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                     style={{ border: '1px solid #d1d5db', color: '#374151' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Importer PDF
+                    {pdfLoading ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Extraction…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Importer PDF
+                      </>
+                    )}
                     <input ref={fileInputRef} type="file" accept="application/pdf"
                       className="hidden" onChange={handlePdfUpload} disabled={pdfLoading} />
                   </label>
-                </div>
+                )}
               </div>
+
               {pdfError && <p className="mb-2 text-xs text-red-500">{pdfError}</p>}
-              <textarea
-                className="flex-1 rounded-xl p-4 text-sm font-mono resize-none min-h-[300px] transition-all outline-none"
-                style={{
-                  border: '1.5px solid #e2e8f0', background: '#f8fafc',
-                  color: '#1e293b', lineHeight: '1.6',
-                }}
-                onFocus={e => e.target.style.borderColor = '#2563eb'}
-                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                placeholder="Collez votre CV ici ou importez un PDF…"
-                value={cv}
-                onChange={(e) => setCv(e.target.value)}
-              />
+
+              {cvSource === 'pdf' ? (
+                /* ── PDF success state — no raw text shown ── */
+                <div className="flex-1 rounded-xl flex flex-col items-center justify-center gap-4 min-h-[300px]"
+                  style={{ border: '1.5px solid #bbf7d0', background: '#f0fdf4' }}>
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center"
+                    style={{ background: '#dcfce7' }}>
+                    <svg className="w-7 h-7" fill="none" stroke="#16a34a" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div className="text-center px-4">
+                    <p className="text-sm font-semibold" style={{ color: '#15803d' }}>CV importé avec succès</p>
+                    <p className="text-xs mt-1 truncate max-w-[220px]" style={{ color: '#16a34a' }}
+                      title={pdfFileName}>
+                      {pdfFileName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleClearPdf}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    style={{ border: '1px solid #86efac', color: '#15803d', background: 'transparent' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Supprimer et saisir manuellement
+                  </button>
+                </div>
+              ) : (
+                /* ── Manual text mode ── */
+                <textarea
+                  className="flex-1 rounded-xl p-4 text-sm font-mono resize-none min-h-[300px] transition-all outline-none"
+                  style={{
+                    border: '1.5px solid #e2e8f0', background: '#f8fafc',
+                    color: '#1e293b', lineHeight: '1.6',
+                  }}
+                  onFocus={e => e.target.style.borderColor = '#2563eb'}
+                  onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                  placeholder="Collez votre CV ici ou importez un PDF…"
+                  value={cv}
+                  onChange={(e) => setCv(e.target.value)}
+                />
+              )}
             </div>
 
             {/* Offer column */}
