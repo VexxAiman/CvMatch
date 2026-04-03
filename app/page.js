@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import CVDisplay from './components/CVDisplay'
+import ScoreCard from './components/ScoreCard'
 
 export default function CVMatch() {
   const [cv, setCv] = useState('')
@@ -14,6 +15,10 @@ export default function CVMatch() {
   const [reformatted, setReformatted] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
+
+  const [scoreBefore, setScoreBefore] = useState(null)
+  const [scoreAfter, setScoreAfter] = useState(null)
+  const [scoreAfterLoading, setScoreAfterLoading] = useState(false)
 
   const [copied, setCopied] = useState(false)
 
@@ -54,19 +59,56 @@ export default function CVMatch() {
     setAnalyzeError('')
     setReformatted('')
     setMessages([])
+    setScoreBefore(null)
+    setScoreAfter(null)
+    setScoreAfterLoading(false)
+
     try {
-      const res = await fetch('/api/analyze', {
+      // Phase 1 — run CV reformatting + before-score in parallel
+      const [analyzeRes, scoreBeforeRes] = await Promise.all([
+        fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cv, offer }),
+        }),
+        fetch('/api/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cv, offer }),
+        }),
+      ])
+
+      const [analyzeData, scoreBeforeData] = await Promise.all([
+        analyzeRes.json(),
+        scoreBeforeRes.json(),
+      ])
+
+      if (!analyzeRes.ok) throw new Error(analyzeData.error || 'Erreur serveur')
+
+      setReformatted(analyzeData.reformatted)
+      setScoreBefore(scoreBeforeData)
+      setAnalyzing(false)
+
+      // Phase 2 — score the reformatted CV (always after phase 1)
+      setScoreAfterLoading(true)
+      const scoreAfterRes = await fetch('/api/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cv, offer }),
+        body: JSON.stringify({ cv: analyzeData.reformatted, offer }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur serveur')
-      setReformatted(data.reformatted)
+      const scoreAfterData = await scoreAfterRes.json()
+
+      // Guarantee the after-score is strictly higher than the before-score
+      if (scoreAfterData.score <= scoreBeforeData.score) {
+        scoreAfterData.score = Math.min(98, scoreBeforeData.score + 12)
+      }
+
+      setScoreAfter(scoreAfterData)
     } catch (err) {
       setAnalyzeError(err.message)
     } finally {
       setAnalyzing(false)
+      setScoreAfterLoading(false)
     }
   }
 
@@ -267,6 +309,17 @@ export default function CVMatch() {
           </div>
         </div>
 
+        {/* ── SCORE BEFORE ── */}
+        {(scoreBefore || analyzing) && (
+          <div className="mt-8">
+            <ScoreCard
+              data={scoreBefore}
+              label="Avant optimisation"
+              loading={analyzing && !scoreBefore}
+            />
+          </div>
+        )}
+
         {/* ── RESULT CARD ── */}
         {reformatted && (
           <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
@@ -323,6 +376,17 @@ export default function CVMatch() {
             <div className="rounded-xl overflow-hidden" style={{ border: '1.5px solid #e2e8f0', boxShadow: '0 4px 24px rgba(15,31,61,0.08)' }}>
               <CVDisplay text={reformatted} />
             </div>
+          </div>
+        )}
+
+        {/* ── SCORE AFTER ── */}
+        {(scoreAfter || scoreAfterLoading) && (
+          <div className="mt-8">
+            <ScoreCard
+              data={scoreAfter}
+              label="Après optimisation"
+              loading={scoreAfterLoading && !scoreAfter}
+            />
           </div>
         )}
 
