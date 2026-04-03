@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Print styles ── */
+@media print {
+  /* Hide everything on the page */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the CV */
+  #cv-print,
+  #cv-print * {
+    visibility: visible;
+  }
+
+  #cv-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Force background colors to print (header bg) */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 0;
+    size: A4;
+  }
+}
