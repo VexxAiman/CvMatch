@@ -1,19 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --navy: #0f1f3d;
+  --navy-light: #162848;
+  --navy-border: #1e3460;
+  --accent: #2563eb;
+  --accent-light: #3b82f6;
+}
+
+html {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  background: #f0f4f8;
+  color: #0f1f3d;
+}
+
+/* Smooth scrollbar */
+* { scroll-behavior: smooth; }
+
 /* ── Print styles ── */
 @media print {
-  /* Hide everything on the page */
-  body * {
-    visibility: hidden;
-  }
+  body * { visibility: hidden; }
 
-  /* Show only the CV */
   #cv-print,
-  #cv-print * {
-    visibility: visible;
-  }
+  #cv-print * { visibility: visible; }
 
   #cv-print {
     position: absolute;
@@ -24,7 +40,6 @@
     border-radius: 0 !important;
   }
 
-  /* Force background colors to print (header bg) */
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
